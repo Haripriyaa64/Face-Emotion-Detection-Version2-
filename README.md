@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 📌 Real-Time Facial Emotion Detection
 
 A web-based application that detects human emotions in real-time using webcam input and deep learning. The system captures live video, detects faces, and predicts emotions instantly.
@@ -50,3 +51,6 @@ A web-based application that detects human emotions in real-time using webcam in
 - **Dataset:** FER2013  
 
 ---
+=======
+# Face-Emotion-Detection-Version2-
+>>>>>>> 900e2532a9199a797a6190d48616103c494453d2
