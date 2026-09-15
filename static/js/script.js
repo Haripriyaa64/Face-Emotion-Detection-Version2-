@@ -278,52 +278,69 @@
     }
 
     async function startCamera() {
-        if (analyzing) return;
+    if (analyzing) return;
 
-        try {
-            setStatus("Requesting camera…", "warning");
+    try {
+        setStatus("Requesting camera…", "warning");
 
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
 
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: currentFacingMode,
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                audio: false
-            });
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: currentFacingMode,
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            },
+            audio: false
+        });
 
-            camera.srcObject = stream;
-            await camera.play();
+        camera.srcObject = stream;
 
-            resizeOverlay();
-            placeholder.classList.add("hidden");
-            startButton.disabled = true;
-            stopButton.disabled = false;
-            flipButton.disabled = false;
-            snapshotButton.disabled = false;
+        // Don't wait for camera.play() to finish.
+        // Some browsers can keep the video visible while play()
+        // takes too long to resolve.
+        camera.play().catch(error => {
+            console.warn("Video play warning:", error);
+        });
 
-            analyzing = true;
-            setLive(true);
-            setStatus("Vision system online");
-            analysisState.textContent = "Scanning";
+        resizeOverlay();
 
-            schedulePrediction();
-        } catch (error) {
-            console.error(error);
-            setStatus("Camera permission required", "error");
-            analysisState.textContent = "Blocked";
+        placeholder.classList.add("hidden");
+        startButton.disabled = true;
+        stopButton.disabled = false;
+        flipButton.disabled = false;
+        snapshotButton.disabled = false;
 
-            if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
-                alert("Camera access requires HTTPS. Your Render URL already provides HTTPS.");
-            } else {
-                alert("Camera access was blocked. Allow camera permission in your browser and try again.");
-            }
+        analyzing = true;
+        setLive(true);
+        setStatus("Vision system online");
+        analysisState.textContent = "Scanning";
+
+        // Start AI prediction immediately.
+        schedulePrediction();
+
+    } catch (error) {
+        console.error("Camera error:", error);
+
+        setStatus("Camera permission required", "error");
+        analysisState.textContent = "Blocked";
+
+        if (
+            !window.isSecureContext &&
+            location.hostname !== "localhost" &&
+            location.hostname !== "127.0.0.1"
+        ) {
+            alert("Camera access requires HTTPS.");
+        } else {
+            alert(
+                "Camera access failed. Please allow camera permission and try again."
+            );
         }
     }
+}
 
     function stopCamera() {
         analyzing = false;
