@@ -1,27 +1,53 @@
-from flask import Flask, render_template, Response, jsonify
-from detect_emotion import generate_frames, get_last_emotion
+from flask import Flask, jsonify, render_template, request
+from detect_emotion import get_model_status, predict_frame
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 3 * 1024 * 1024  # 3 MB/frame
 
 
-@app.route('/')
+@app.get("/")
 def index():
     return render_template("index.html")
 
 
-@app.route('/video')
-def video():
-    return Response(
-        generate_frames(),
-        mimetype='multipart/x-mixed-replace; boundary=frame'
-    )
+@app.get("/health")
+def health():
+    status = get_model_status()
+    return jsonify({
+        "status": "ok" if status["ready"] else "degraded",
+        **status,
+    })
 
 
-@app.route('/emotion_data')
-def emotion_data():
-    """Returns the latest detected emotion + confidence scores as JSON."""
-    return jsonify(get_last_emotion())
+@app.get("/api/model-info")
+def model_info():
+    return jsonify(get_model_status())
+
+
+@app.post("/predict")
+def predict():
+    frame = request.files.get("frame")
+
+    if frame is None:
+        return jsonify({"error": "No frame was uploaded."}), 400
+
+    result = predict_frame(frame.stream)
+
+    if "error" in result:
+        return jsonify(result), 503 if result.get("code") == "MODEL_MISSING" else 400
+
+    return jsonify(result)
+
+
+@app.errorhandler(413)
+def request_too_large(_error):
+    return jsonify({"error": "Frame is too large. Keep the camera image under 3 MB."}), 413
+
+
+@app.errorhandler(500)
+def internal_error(_error):
+    return jsonify({"error": "The server could not process this frame."}), 500
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=True)
